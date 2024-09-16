@@ -2,7 +2,7 @@
 local MPlusTracker = {}
 local eventFrame = CreateFrame("Frame")
 local mplusIsActive = false
-local currRun = nil
+local currRun = {}
 
 
 -- Saved vars
@@ -78,6 +78,17 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
         mplusIsActive = false
       end
     end
+  elseif event == "GROUP_ROSTER_UPDATE" then
+    if mplusIsActive then
+      local numGroupMembers = GetNumGroupMembers()
+      if numGroupMembers < #currRun.party then
+        MPlusTrackerDB.incomplete = MPlusTrackerDB.incomplete + 1
+        currRun.completed = false
+        table.insert(MPlusTrackerDB.runs, currRun)
+        print("A player left, m+ marked as incomplete")
+        mplusIsActive = false
+      end
+    end
   end
 end)
 
@@ -85,6 +96,7 @@ eventFrame:RegisterEvent("CHALLENGE_MODE_START")
 eventFrame:RegisterEvent("CHALLENGE_MODE_COMPLETED")
 eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 eventFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+eventFrame:RegisterEvent("GROUP_ROSTER_UPDATE")
 
 -- Slash cmds
 SLASH_MPTRACKER1 = "/mpt"
