@@ -124,6 +124,53 @@ SlashCmdList["MPT"] = function()
   print("Incomplete: " .. MPlusTracker.DB.incomplete)
 end
 
+-- CSV Export function
+function MPlusTracker.ExportToCSV()
+  local csvData = "Timestamp,Dungeon,Key,Party,Completed\n"
+
+  for _, run in ipairs(MPlusTracker.DB.runs) do
+    local partyMembers = {}
+    for _, member in ipairs(run.party) do
+      table.insert(partyMembers,
+        member.name .. " (" .. member.class .. " - " .. member.spec .. " - " .. member.role .. ")")
+    end
+
+    csvData = csvData .. string.format(
+      "%s,%s,%d,\"%s\",%s\n", run.timestamp, run.dungeon, run.keyLevel, table.concat(partyMembers, "; "),
+      tostring(run.completed)
+    )
+  end
+  return csvData
+end
+
+-- Simple UI to display CSV
+local function ShowExportUI(csvData)
+  local exportFrame = CreateFrame("Frame", "MPlusExportFrame", UIParent, "BasicFrameTemplateWithInser")
+  exportFrame:SetSize(400, 300)
+  exportFrame:SetPoint("CENTER")
+
+  local scrollFrame = CreateFrame("ScrollFrame", nil, exportFrame, "UIPanelScrollFrameTemplate")
+  scrollFrame:SetSize(400, 300)
+  scrollFrame:SetPoint("TOP", exportFrame, "TOP", 0, -30)
+
+  local editBox = CreateFrame("EditBox", nil, scrollFrame)
+  editBox:SetMultiLine(true)
+  editBox:SetFontObject("ChatFontNormal")
+  editBox:SetWidth(360)
+  editBox:SetText(csvData)
+  editBox:HighlightText()
+  scrollFrame:SetScrollChild(editBox)
+
+  exportFrame:Sow()
+end
+
+-- Slash cmd to export data as CSV
+SLASH_MPTRACKEREXPORT1 = "/mpexport"
+SlashCmdList["SLASH_MPTRACKEREXPORT"] = function()
+  local csvData = MPlusTracker.ExportToCSV
+  ShowExportUI(csvData)
+end
+
 -- Simple UI
 local frame = CreateFrame("Frame", "MPlusTrackerFrame", UIParent, "BasicFrameTemplateWithInset")
 frame:SetSize(300, 400) -- Width, Height
