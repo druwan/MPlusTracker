@@ -1,7 +1,7 @@
 ## Interface: 110002
-## Title: Mythic+ Tracker
+## Title: MPlusTracker
 ## Notes: Tracks the groupcomposition and completion of m+ runs
 ## Author: Druwan
-## Version: 0.0.1
+## SavedVariables: MPT_DB
 
 MPlusTracker.lua
