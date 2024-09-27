@@ -1,0 +1,46 @@
+name: Update Tag
+
+on:
+  push:
+    branches:
+      - main
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+    
+      - name: Get Next Version
+        id: semver
+        uses: ietf-tools/semver-action@v1
+        with:
+          token: ${{ github.token }}
+          branch: main
+
+      - name: Get Latest Tag
+        id: get_latest_tag
+        run: echo ::set-output name=latest_tag::$(git describe --tags --abbrev=0)
+
+      - name: Get Commits
+        id: get_commit_messages
+        run: |
+          # If no tag, use all commits
+          if [ -z "${{ steps.get_latest_tag.outputs.latest_tag }}" ]; then
+            commits=$(git log --pretty=format:"* %s" HEAD)
+          else
+            commits=$(git log --pretty=format"* %s" ${{ steps.get_latest_tag.outputs.latest_tag }}..HEAD)
+          fi
+          echo "Commits:"
+          echo "$commits"
+          echo "::set-output name=messages::$commits"
+
+      - name: Push tag
+        uses: mathieudutour/github-tag-action@v6.2
+        with:
+          custom_tag: ${{ steps.semver.outputs.next }}
+          github_token: ${{ github.token }}
+          tag_prefix: ''
+          tag_message: |
+            Changes since last release:
+            ${{ steps.get_commit_messages.output.messages }}
