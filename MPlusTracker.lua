@@ -161,7 +161,7 @@ local function ShowExportUI(csvData)
   editBox:HighlightText()
   scrollFrame:SetScrollChild(editBox)
 
-  exportFrame:Sow()
+  exportFrame:Show()
 end
 
 -- Slash cmd to export data as CSV
