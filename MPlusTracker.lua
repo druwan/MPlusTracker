@@ -70,7 +70,6 @@ function MPT.OnEvent(self, event, ...)
       local _, _, time, onTime, _, _, _, _, _, _, primaryAffix, _, _ = C_ChallengeMode.GetCompletionInfo()
       local name = select(1, C_ChallengeMode.GetAffixInfo(primaryAffix))
 
-      MPT.currentRun.endTime = time()
       MPT.currentRun.completionTime = time
       MPT.currentRun.primaryAffix = name
       table.insert(MPT.DB.runs, MPT.currentRun)
@@ -89,7 +88,6 @@ function MPT.OnEvent(self, event, ...)
       MPT.currentRun.abandoned = true
       table.insert(MPT.DB.runs, MPT.currentRun)
       MPT.DB.incomplete = MPT.DB.incomplete + 1
-      MPT.MarkRunIncomplete("Player left the dungeon.")
       MPT.currentRun = nil
     end
   end
