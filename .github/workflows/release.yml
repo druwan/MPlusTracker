@@ -41,4 +41,6 @@ jobs:
           custom_tag: ${{ steps.semver.outputs.next }}
           github_token: ${{ github.token }}
           tag_prefix: ''
-          create_annotated_tag: true
+          tag_message: |
+            Changes since last release: 
+            ${{ steps.get_commit_messages.outputs.messages }}
