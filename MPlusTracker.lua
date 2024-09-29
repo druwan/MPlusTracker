@@ -66,10 +66,8 @@ end
 local function OnAddonLoaded(addonName)
   if addonName == GetAddOnMetadata(Name, 'X-Title') then
     MPT.isReloading = false
-    -- Check if there was an active run not marked as completed or abandoned
     if MPT.currentRun and not MPT.currentRun.completed and not MPT.currentRun.abandoned then
-      -- Run was still active before the reload, do not count as abandoned
-      -- Do nothing, as it's a reload
+      -- A run was active during reload --> Do nothing
     end
   end
 end
@@ -79,7 +77,7 @@ local function OnPlayerLogout()
 end
 
 -- Event handler for m+ tracking
-function MPT.OnEvent(event, ...)
+function MPT.OnEvent(_, event, ...)
   if event == "ADDON_LOADED" then
     OnAddonLoaded(...)
   elseif event == "PLAYER_LOGOUT" then
