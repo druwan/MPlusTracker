@@ -104,7 +104,7 @@ eventFrame:SetScript("OnEvent", MPT.OnEvent)
 
 -- Slash command to display stats
 SLASH_MPTTRACKER1 = "/mpt"
-SlashCmdList["MPT"] = function()
+SlashCmdList["MPTTRACKER"] = function()
   print("M+ Runs started: " .. MPT.DB.started)
   print("Completed: " .. MPT.DB.completed.inTime .. " in time, " .. MPT.DB.completed.overTime .. " over time.")
   print("Incomplete: " .. MPT.DB.incomplete)
