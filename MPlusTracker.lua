@@ -18,13 +18,12 @@ MPT.DB = MPT.DB or {
 }
 
 
--- Helper functions
-
 -- Init a new run
-local function InitRun(mapName, keyLevel, startTime)
+local function InitRun(mapName, keyLevel, affixNames, startTime)
   MPT.currentRun = {
     mapName = mapName,
     level = keyLevel,
+    affixNames = affixNames,
     startTime = date("%Y-%m-%d %H:%M:%S", startTime),
     party = {}
   }
@@ -41,11 +40,10 @@ local function InitRun(mapName, keyLevel, startTime)
 end
 
 -- Finalize a run, either completed or incomplete
-local function FinalizeRun(isCompleted, onTime, completionTime, affixName)
+local function FinalizeRun(isCompleted, onTime, completionTime)
   if MPT.currentRun then
     MPT.currentRun.completed = isCompleted
     MPT.currentRun.completionTime = completionTime
-    MPT.currentRun.primaryAffix = affixName
 
     table.insert(MPT.DB.runs, MPT.currentRun)
     MPT.currentRun = nil
@@ -62,56 +60,37 @@ local function FinalizeRun(isCompleted, onTime, completionTime, affixName)
   end
 end
 
--- Event handlers
-local function OnAddonLoaded(addonName)
-  if addonName == GetAddOnMetadata(Name, 'X-Title') then
-    MPT.isReloading = false
-    if MPT.currentRun and not MPT.currentRun.completed and not MPT.currentRun.abandoned then
-      -- A run was active during reload --> Do nothing
-    end
-  end
-end
-
-local function OnPlayerLogout()
-  MPT.isReloading = true
-end
 
 -- Event handler for m+ tracking
 function MPT.OnEvent(_, event, ...)
-  if event == "ADDON_LOADED" then
-    OnAddonLoaded(...)
-  elseif event == "PLAYER_LOGOUT" then
-    OnPlayerLogout()
-  elseif event == "CHALLENGE_MODE_START" then
-    local mapChallengeModeID = C_ChallengeMode.GetActiveChallengeMapID()
-    if mapChallengeModeID then
-      local activeKeystoneLevel = select(1, C_ChallengeMode.GetActiveKeystoneInfo())
-      local name, _, _ = C_ChallengeMode.GetMapUIInfo(mapChallengeModeID)
-      InitRun(name, activeKeystoneLevel, time())
-    end
-  elseif event == "CHALLENGE_MODE_COMPLETED" then
-    if MPT.currentRun then
-      local _, _, time, onTime, _, _, _, _, _, _, primaryAffix, _, _ = C_ChallengeMode.GetCompletionInfo()
-      local name = select(1, C_ChallengeMode.GetAffixInfo(primaryAffix))
-      FinalizeRun(true, onTime, time, name)
-    end
+  local dungeonName, affixName, affixIDs, activeKeystoneLevel
 
+  if event == "CHALLENGE_MODE_START" then
+    dungeonName = C_ChallengeMode.GetMapUIInfo(C_ChallengeMode.GetActiveChallengeMapID())
+    activeKeystoneLevel, affixIDs = select(1, C_ChallengeMode.GetActiveKeystoneInfo())
+    affixName = select(1, C_ChallengeMode.GetAffixInfo(affixIDs))
+    InitRun(dungeonName, activeKeystoneLevel, affixName, time())
+  end
+
+  if event == "CHALLENGE_MODE_COMPLETED" then
+    if MPT.currentRun then
+      local _, _, time, onTime, _, _, _, _, _, _, _, _, _ = C_ChallengeMode.GetCompletionInfo()
+      FinalizeRun(true, onTime, time)
+    end
     -- Handle Abandoned runs,
   elseif event == "CHALLENGE_MODE_RESET" or event == "PLAYER_LEAVING_WORLD" then
-    if MPT.currentRun and not MPT.isReloading then
-      MPT.currentRun.abandoned = true
-      FinalizeRun(false, 'N/A', time(),
-        select(1, C_ChallengeMode.GetAffixInfo(select(2, C_ChallengeMode.GetActiveKeystoneInfo()))))
-
-      MPT.currentRun = nil
+    if MPT.currentRun then
+      if not IsInGroup() then
+        MPT.currentRun.abandoned = true
+        FinalizeRun(false, 'N/A', time())
+        MPT.currentRun = nil
+      end
     end
   end
 end
 
 -- Register events
 local events = {
-  "ADDON_LOADED",
-  "PLAYER_LOGOUT",
   "CHALLENGE_MODE_COMPLETED",
   "CHALLENGE_MODE_RESET",
   "CHALLENGE_MODE_START",
@@ -193,10 +172,6 @@ local function BuildStatsText()
   return text
 end
 
-function MPT.UpdateUI(frame)
-  frame.stats:SetText(BuildStatsText())
-end
-
 -- Simple UI
 local frame = CreateFrame("Frame", "MPTFrame", UIParent, "BasicFrameTemplateWithInset")
 frame:SetSize(300, 400) -- Width, Height
@@ -212,6 +187,10 @@ frame.stats = frame:CreateFontString(nil, "OVERLAY")
 frame.stats:SetFontObject("GameFontHighlight")
 frame.stats:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -40)
 frame.stats:SetJustifyH("LEFT")
+
+function MPT.UpdateUI()
+  frame.stats:SetText(BuildStatsText())
+end
 
 SLASH_MPTTRACKERUI1 = "/mptui"
 SlashCmdList["MPTTRACKERUI"] = function()
