@@ -17,6 +17,52 @@ MPT.DB = MPT.DB or {
   started = 0,
 }
 
+
+-- Helper functions
+
+-- Init a new run
+local function InitRun(mapName, keyLevel, startTime)
+  MPT.currentRun = {
+    mapName = mapName,
+    level = keyLevel,
+    startTime = date("%Y-%m-%d %H:%M:%S", startTime),
+    party = {}
+  }
+
+  for i = 1, 5 do
+    local name, _, _, _, class, _, _, _, _, _, _, combatRole = GetRaidRosterInfo(i)
+    if name then
+      table.insert(MPT.currentRun.party, { name = name, class = class, combatRole = combatRole })
+    end
+  end
+
+  MPT.DB.started = MPT.DB.started + 1
+  print("Mythic+ started: " .. mapName .. " (Level: " .. keyLevel .. ")")
+end
+
+-- Finalize a run, either completed or incomplete
+local function FinalizeRun(isCompleted, onTime, completionTime, affixName)
+  if MPT.currentRun then
+    MPT.currentRun.completed = isCompleted
+    MPT.currentRun.completionTime = completionTime
+    MPT.currentRun.primaryAffix = affixName
+
+    table.insert(MPT.DB.runs, MPT.currentRun)
+    MPT.currentRun = nil
+
+    if isCompleted then
+      if onTime then
+        MPT.DB.completed.inTime = MPT.DB.completed.inTime + 1
+      else
+        MPT.DB.completed.overTime = MPT.DB.completed.overTime + 1
+      end
+    else
+      MPT.DB.incomplete = MPT.DB.incomplete + 1
+    end
+  end
+end
+
+-- Event handlers
 local function OnAddonLoaded(addonName)
   if addonName == GetAddOnMetadata(Name, 'X-Title') then
     MPT.isReloading = false
@@ -33,100 +79,76 @@ local function OnPlayerLogout()
 end
 
 -- Event handler for m+ tracking
-function MPT.OnEvent(self, event, ...)
+function MPT.OnEvent(event, ...)
   if event == "ADDON_LOADED" then
     OnAddonLoaded(...)
   elseif event == "PLAYER_LOGOUT" then
     OnPlayerLogout()
-    -- Start a new M+ run
   elseif event == "CHALLENGE_MODE_START" then
     local mapChallengeModeID = C_ChallengeMode.GetActiveChallengeMapID()
     if mapChallengeModeID then
       local activeKeystoneLevel = select(1, C_ChallengeMode.GetActiveKeystoneInfo())
       local name, _, _ = C_ChallengeMode.GetMapUIInfo(mapChallengeModeID)
-      local startTime = time()
-
-      MPT.currentRun = {
-        mapName = name,
-        level = activeKeystoneLevel,
-        startTime = date("%Y-%m-%d %H:%M:%S", startTime),
-        party = {}
-      }
-
-      for i = 1, 5 do
-        local name, _, _, _, class, _, _, _, _, _, _, combatRole = GetRaidRosterInfo(i)
-        if name then
-          table.insert(MPT.currentRun.party, { name = name, class = class, combatRole = combatRole })
-        end
-      end
-
-      MPT.DB.started = MPT.DB.started + 1
-      print("Mythic+ started: " .. name .. " (Level: " .. activeKeystoneLevel .. ")")
+      InitRun(name, activeKeystoneLevel, time())
     end
-
-    -- Complete M+
   elseif event == "CHALLENGE_MODE_COMPLETED" then
     if MPT.currentRun then
       local _, _, time, onTime, _, _, _, _, _, _, primaryAffix, _, _ = C_ChallengeMode.GetCompletionInfo()
       local name = select(1, C_ChallengeMode.GetAffixInfo(primaryAffix))
-
-      MPT.currentRun.completionTime = time
-      MPT.currentRun.primaryAffix = name
-      table.insert(MPT.DB.runs, MPT.currentRun)
-      MPT.currentRun = nil
-
-      if onTime then
-        MPT.DB.completed.inTime = MPT.DB.completed.inTime + 1
-      else
-        MPT.DB.completed.overTime = MPT.DB.completed.overTime + 1
-      end
+      FinalizeRun(true, onTime, time, name)
     end
 
     -- Handle Abandoned runs,
   elseif event == "CHALLENGE_MODE_RESET" or event == "PLAYER_LEAVING_WORLD" then
     if MPT.currentRun and not MPT.isReloading then
       MPT.currentRun.abandoned = true
-      table.insert(MPT.DB.runs, MPT.currentRun)
-      MPT.DB.incomplete = MPT.DB.incomplete + 1
+      FinalizeRun(false, 'N/A', time(),
+        select(1, C_ChallengeMode.GetAffixInfo(select(2, C_ChallengeMode.GetActiveKeystoneInfo()))))
+
       MPT.currentRun = nil
     end
   end
 end
 
 -- Register events
+local events = {
+  "ADDON_LOADED",
+  "PLAYER_LOGOUT",
+  "CHALLENGE_MODE_COMPLETED",
+  "CHALLENGE_MODE_RESET",
+  "CHALLENGE_MODE_START",
+  "PLAYER_LEAVING_WORLD"
+}
+
+for _, e in pairs(events) do
+  eventFrame:RegisterEvent(e)
+end
 eventFrame:SetScript("OnEvent", MPT.OnEvent)
-eventFrame:RegisterEvent("ADDON_LOADED")
-eventFrame:RegisterEvent("PLAYER_LOGOUT")
-eventFrame:RegisterEvent("CHALLENGE_MODE_COMPLETED")
-eventFrame:RegisterEvent("CHALLENGE_MODE_RESET")
-eventFrame:RegisterEvent("CHALLENGE_MODE_START")
-eventFrame:RegisterEvent("PLAYER_LEAVING_WORLD")
 
 -- Slash command to display stats
-SLASH_MPTRACKER1 = "/mpt"
+SLASH_MPTTRACKER1 = "/mpt"
 SlashCmdList["MPT"] = function()
-  print("M+ Runs: " .. MPT.DB.started)
-  print("Completed: " .. MPT.DB.completed)
+  print("M+ Runs started: " .. MPT.DB.started)
+  print("Completed: " .. MPT.DB.completed.inTime .. " in time, " .. MPT.DB.completed.overTime .. " over time.")
   print("Incomplete: " .. MPT.DB.incomplete)
 end
 
 -- CSV Export function
-function MPT.ExportToCSV()
+local function BuildCSVData()
   local csvData = "Timestamp,Dungeon,Key,Party,Completed\n"
-
   for _, run in ipairs(MPT.DB.runs) do
-    local partyMembers = {}
+    local party = {}
     for _, member in ipairs(run.party) do
-      table.insert(partyMembers,
-        member.name .. " (" .. member.class .. " - " .. member.spec .. " - " .. member.role .. ")")
+      table.insert(party, member.name .. " (" .. member.class .. " - " .. member.combatRole .. ")")
     end
-
-    csvData = csvData .. string.format(
-      "%s,%s,%d,\"%s\",%s\n", run.timestamp, run.dungeon, run.keyLevel, table.concat(partyMembers, "; "),
-      tostring(run.completed)
-    )
+    csvData = csvData .. string.format("%s,%s,%d,\"%s\",%s\n",
+      run.startTime, run.mapName, run.level, table.concat(party, "; "), tostring(run.completed))
   end
   return csvData
+end
+
+function MPT.ExportToCSV()
+  return BuildCSVData()
 end
 
 -- Simple UI to display CSV
@@ -145,19 +167,36 @@ local function ShowExportUI(csvData)
     editBox:SetMultiLine(true)
     editBox:SetFontObject("ChatFontNormal")
     editBox:SetWidth(360)
-    editBox:SetText(csvData)
-    editBox:HighlightText()
     scrollFrame:SetScrollChild(editBox)
+    exportFrame.editBox = editBox
   end
   exportFrame.editBox:SetText(csvData)
   exportFrame:Show()
 end
 
 -- Slash cmd to export data as CSV
-SLASH_MPTRACKEREXPORT1 = "/mptexport"
-SlashCmdList["MPTRACKEREXPORT"] = function()
+SLASH_MPTTRACKEREXPORT1 = "/mptexport"
+SlashCmdList["MPTTRACKEREXPORT"] = function()
   local csvData = MPT.ExportToCSV()
   ShowExportUI(csvData)
+end
+
+-- UI Function
+local function BuildStatsText()
+  local text = string.format(
+    "Started runs: %d\nCompleted (in time/over time): %d / %d\nIncomplete: %d\n\nRecent Runs:\n", MPT.DB.started,
+    MPT.DB.completed.inTime, MPT.DB.completed.overTime, MPT.DB.incomplete)
+
+  for i = math.max(1, #MPT.DB.runs - 5), #MPT.DB.runs do
+    local run = MPT.DB.runs[i]
+    local status = run.completed and "Completed" or "Incomplete"
+    text = text .. string.format("- %s (+%d) - %s\n", run.mapName, run.level, status)
+  end
+  return text
+end
+
+function MPT.UpdateUI(frame)
+  frame.stats:SetText(BuildStatsText())
 end
 
 -- Simple UI
@@ -176,22 +215,8 @@ frame.stats:SetFontObject("GameFontHighlight")
 frame.stats:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -40)
 frame.stats:SetJustifyH("LEFT")
 
-function MPT.UpdateUI()
-  local text = "started runs: " .. MPT.DB.started .. "\n"
-  text = text .. "Completed: " .. MPT.DB.completed .. "\n"
-  text = text .. "Incomplete: " .. MPT.DB.incomplete .. "\n\n"
-  text = text .. "Recent Runs:\n"
-
-  for i = math.max(1, #MPT.DB.runs - 5), #MPT.DB.runs do
-    local run = MPT.DB.runs[i]
-    local status = run.completed and "Completed" or "Incomplete"
-    text = text .. "- " .. run.dungeon .. " (+ " .. run.keyLevel .. ") -" .. status .. "\n"
-  end
-  frame.stats:SetText(text)
-end
-
-SLASH_MPTRACKERUI1 = "/mptui"
-SlashCmdList["MPTRACKERUI"] = function()
+SLASH_MPTTRACKERUI1 = "/mptui"
+SlashCmdList["MPTTRACKERUI"] = function()
   if frame:IsShown() then
     frame:Hide()
   else
