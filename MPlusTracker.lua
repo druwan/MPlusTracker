@@ -30,9 +30,25 @@ local function InitRun(mapName, keyLevel, affixNames, startTime)
   }
 
   for i = 1, 5 do
-    local name, _, _, _, class, _, _, _, _, _, _, combatRole = GetRaidRosterInfo(i)
-    if name then
-      table.insert(MPT.currentRun.party, { name = name, class = class, combatRole = combatRole })
+    local unit = (i == 1) and "player" or "party" .. (i - 1)
+    local name, class, role, specName, specID
+
+    if UnitExists(unit) then
+      name = GetUnitName(unit, true)
+      class = select(2, UnitClass(unit))
+      role = UnitGroupRolesAssigned(unit)
+
+      specID = GetInspectSpecialization(unit)
+      specName = GetSpecializationNameForSpecID(specID)
+
+      local isMe = UnitIsUnit(unit, "player") and " (Me)" or ""
+
+      table.insert(MPT.currentRun.party, {
+        name = name .. isMe,
+        role = role,
+        class = class,
+        spec = specName
+      })
     end
   end
 

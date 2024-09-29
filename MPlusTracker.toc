@@ -2,6 +2,6 @@
 ## Title: MPlusTracker
 ## Notes: Tracks the groupcomposition and completion of m+ runs
 ## Author: Druwan
-## SavedVariables: MPT_DB
+## SavedVariablesPerCharacter: MPT_DB
 
 MPlusTracker.lua
