@@ -2,20 +2,21 @@
 local MPT = _G.MPT or {}
 _G.MPT = MPT
 local eventFrame = CreateFrame("Frame")
-local GetAddOnMetadata = C_AddOns.GetAddOnMetadata
-local Name, _ = ...
-
 
 -- Default values for the database
-MPT.DB = MPT.DB or {
-  completed = {
-    inTime = 0,
-    overTime = 0,
-  },
-  incomplete = 0,
-  runs = {},
-  started = 0,
-}
+if not MPT_DB then
+  MPT_DB = {
+    completed = {
+      inTime = 0,
+      overTime = 0,
+    },
+    incomplete = 0,
+    runs = {},
+    started = 0,
+  }
+end
+
+MPT.DB = MPT_DB
 
 
 -- Init a new run
@@ -67,8 +68,8 @@ function MPT.OnEvent(_, event, ...)
 
   if event == "CHALLENGE_MODE_START" then
     dungeonName = C_ChallengeMode.GetMapUIInfo(C_ChallengeMode.GetActiveChallengeMapID())
-    activeKeystoneLevel, affixIDs = select(1, C_ChallengeMode.GetActiveKeystoneInfo())
-    affixName = select(1, C_ChallengeMode.GetAffixInfo(affixIDs))
+    activeKeystoneLevel, affixIDs, _ = C_ChallengeMode.GetActiveKeystoneInfo()
+    affixName = select(1, C_ChallengeMode.GetAffixInfo(affixIDs[1]))
     InitRun(dungeonName, activeKeystoneLevel, affixName, time())
   end
 
