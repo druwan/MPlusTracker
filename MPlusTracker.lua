@@ -133,7 +133,9 @@ local function BuildCSVData()
   for _, run in ipairs(MPT.DB.runs) do
     local party = {}
     for _, member in ipairs(run.party) do
-      table.insert(party, member.name .. " (" .. member.class .. " - " .. member.combatRole .. ")")
+      local specInfo = member.spec and (" (" .. member.spec .. ")") or ""
+      local selfMark = member.isMe and " (*)" or ""
+      table.insert(party, member.name .. " (" .. member.class .. " - " .. member.combatRole .. specInfo .. selfMark ")")
     end
     csvData = csvData .. string.format("%s,%s,%d,\"%s\",%s\n",
       run.startTime, run.mapName, run.level, table.concat(party, "; "), tostring(run.completed))
