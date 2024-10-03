@@ -16,7 +16,32 @@ if not MPT_DB then
   }
 end
 
+if not MPT_DB_GLOBAL then
+  MPT_DB_GLOBAL = {
+    completed = {
+      inTime = 0,
+      overTime = 0,
+    },
+    incomplete = 0,
+    runs = {},
+    started = 0,
+  }
+end
+
 MPT.DB = MPT_DB
+MPT.DB_GLOBAL = MPT_DB_GLOBAL
+
+local function UpdateGlobalStats()
+  MPT.DB_GLOBAL.started = MPT.DB_GLOBAL.started + MPT.DB.started
+  MPT.DB_GLOBAL.completed.inTime = MPT.DB_GLOBAL.completed.inTime + MPT.DB.completed.inTime
+  MPT.DB_GLOBAL.completed.overTime = MPT.DB_GLOBAL.completed.overTime + MPT.DB.completed.overTime
+  MPT.DB_GLOBAL.incomplete = MPT.DB_GLOBAL.incomplete + MPT.DB.incomplete
+end
+
+local function AutoSaveStats()
+  -- Update global stats
+  UpdateGlobalStats()
+end
 
 
 -- Init a new run
@@ -53,6 +78,8 @@ local function InitRun(mapName, keyLevel, affixNames, startTime)
   end
 
   MPT.DB.started = MPT.DB.started + 1
+  MPT.DB_GLOBAL.started = MPT.DB_GLOBAL.started + 1
+
   print("Mythic+ started: " .. mapName .. " (Level: " .. keyLevel .. ")")
 end
 
@@ -63,24 +90,42 @@ local function FinalizeRun(isCompleted, onTime, completionTime)
     MPT.currentRun.completionTime = completionTime
 
     table.insert(MPT.DB.runs, MPT.currentRun)
-    MPT.currentRun = nil
 
+    MPT.DB_GLOBAL.started = MPT.DB_GLOBAL.started + 1
     if isCompleted then
       if onTime then
         MPT.DB.completed.inTime = MPT.DB.completed.inTime + 1
+        MPT.DB_GLOBAL.completed.inTime = MPT.DB_GLOBAL.completed.inTime + 1
       else
         MPT.DB.completed.overTime = MPT.DB.completed.overTime + 1
+        MPT.DB_GLOBAL.completed.overTime = MPT.DB_GLOBAL.completed.overTime + 1
       end
     else
       MPT.DB.incomplete = MPT.DB.incomplete + 1
+      MPT.DB_GLOBAL.incomplete = MPT.DB_GLOBAL.incomplete + 1
     end
+    MPT.currentRun = nil
   end
 end
 
 
+-- Register a timer to save every 5 minutes
+C_Timer.NewTicker(300, AutoSaveStats)
+
 -- Event handler for m+ tracking
 function MPT.OnEvent(_, event, ...)
   local dungeonName, affixName, affixIDs, activeKeystoneLevel
+
+  if event == "ADDON_LOADED" then
+    local addonName = ...
+    if addonName == "MPlusTracker" then
+      print("MPT Loaded")
+    end
+  end
+
+  if event == "PLAYER_LOGOUT" then
+    UpdateGlobalStats()
+  end
 
   if event == "CHALLENGE_MODE_START" then
     dungeonName = C_ChallengeMode.GetMapUIInfo(C_ChallengeMode.GetActiveChallengeMapID())
@@ -108,10 +153,12 @@ end
 
 -- Register events
 local events = {
+  "ADDON_LOADED",
   "CHALLENGE_MODE_COMPLETED",
   "CHALLENGE_MODE_RESET",
   "CHALLENGE_MODE_START",
-  "PLAYER_LEAVING_WORLD"
+  "PLAYER_LEAVING_WORLD",
+  "PLAYER_LOGOUT"
 }
 
 for _, e in pairs(events) do
@@ -122,9 +169,10 @@ eventFrame:SetScript("OnEvent", MPT.OnEvent)
 -- Slash command to display stats
 SLASH_MPTTRACKER1 = "/mpt"
 SlashCmdList["MPTTRACKER"] = function()
-  print("M+ Runs started: " .. MPT.DB.started)
-  print("Completed: " .. MPT.DB.completed.inTime .. " in time, " .. MPT.DB.completed.overTime .. " over time.")
-  print("Incomplete: " .. MPT.DB.incomplete)
+  print("M+ Runs started: " .. MPT.DB_GLOBAL.started)
+  print("Completed: " ..
+    MPT.DB_GLOBAL.completed.inTime .. " in time, " .. MPT.DB_GLOBAL.completed.overTime .. " over time.")
+  print("Incomplete: " .. MPT.DB_GLOBAL.incomplete)
 end
 
 -- CSV Export function
@@ -135,7 +183,8 @@ local function BuildCSVData()
     for _, member in ipairs(run.party) do
       local specInfo = member.spec and (" (" .. member.spec .. ")") or ""
       local selfMark = member.isMe and " (*)" or ""
-      table.insert(party, member.name .. " (" .. member.class .. " - " .. member.combatRole .. specInfo .. selfMark ")")
+      table.insert(party,
+        member.name .. " (" .. member.class .. " - " .. member.combatRole .. specInfo .. selfMark .. ")")
     end
     csvData = csvData .. string.format("%s,%s,%d,\"%s\",%s\n",
       run.startTime, run.mapName, run.level, table.concat(party, "; "), tostring(run.completed))
