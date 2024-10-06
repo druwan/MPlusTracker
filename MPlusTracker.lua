@@ -38,11 +38,6 @@ local function UpdateGlobalStats()
   MPT.DB_GLOBAL.incomplete = MPT.DB_GLOBAL.incomplete + MPT.DB.incomplete
 end
 
-local function AutoSaveStats()
-  -- Update global stats
-  UpdateGlobalStats()
-end
-
 
 -- Init a new run
 local function InitRun(mapName, keyLevel, affixNames, startTime)
@@ -110,7 +105,7 @@ end
 
 
 -- Register a timer to save every 5 minutes
-C_Timer.NewTicker(300, AutoSaveStats)
+C_Timer.NewTicker(300, UpdateGlobalStats)
 
 -- Event handler for m+ tracking
 function MPT.OnEvent(_, event, ...)
