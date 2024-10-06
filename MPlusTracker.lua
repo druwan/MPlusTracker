@@ -184,7 +184,7 @@ local function BuildCSVData()
       local specInfo = member.spec and (" (" .. member.spec .. ")") or ""
       local selfMark = member.isMe and " (*)" or ""
       table.insert(party,
-        member.name .. " (" .. member.class .. " - " .. member.combatRole .. specInfo .. selfMark .. ")")
+        member.name .. " (" .. member.class .. " - " .. member.role .. specInfo .. selfMark .. ")")
     end
     csvData = csvData .. string.format("%s,%s,%d,\"%s\",%s\n",
       run.startTime, run.mapName, run.level, table.concat(party, "; "), tostring(run.completed))
