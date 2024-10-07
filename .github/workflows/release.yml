@@ -10,6 +10,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Get Next Version
         id: semver
@@ -20,7 +22,9 @@ jobs:
 
       - name: Get Latest Tag
         id: get_latest_tag
-        run: echo "latest_tag=$(git describe --tags --abbrev=0)" >> $GITHUB_OUTPUT
+        run: |
+          latest_tag=$(git describe --tags --abbrev=0 || echo "")
+          echo "latest_tag=$latest_tag" >> $GITHUB_OUTPUT
 
       - name: Get Commits
         id: get_commit_messages
@@ -33,7 +37,8 @@ jobs:
           fi
           echo "Commits:"
           echo "$commits"
-          echo "messages=$commits" >> $GITHUB_OUTPUT
+          commits_escaped=$(echo "$commits" | awk '{printf "%s\\n", $0}')
+          echo "messages=$commits_escaped" >> $GITHUB_OUTPUT
 
       - name: Push tag
         uses: mathieudutour/github-tag-action@v6.2
