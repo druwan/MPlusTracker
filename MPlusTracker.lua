@@ -31,11 +31,24 @@ end
 MPT.DB = MPT_DB
 MPT.DB_GLOBAL = MPT_DB_GLOBAL
 
+-- Updates global stats and resets session data to avoid double counting
 local function UpdateGlobalStats()
   MPT.DB_GLOBAL.started = MPT.DB_GLOBAL.started + MPT.DB.started
   MPT.DB_GLOBAL.completed.inTime = MPT.DB_GLOBAL.completed.inTime + MPT.DB.completed.inTime
   MPT.DB_GLOBAL.completed.overTime = MPT.DB_GLOBAL.completed.overTime + MPT.DB.completed.overTime
   MPT.DB_GLOBAL.incomplete = MPT.DB_GLOBAL.incomplete + MPT.DB.incomplete
+
+  -- Reset Session data after updating global stats
+  MPT.DB.started = 0
+  MPT.DB.completed.inTime = 0
+  MPT.DB.completed.overTime = 0
+  MPT.DB.incomplete = 0
+
+  -- Debugging
+  print("Global Stats Updated:")
+  print("Global Runs Started:", MPT.DB_GLOBAL.started)
+  print("Global Runs Completed (In/Over) Time:", MPT.DB_GLOBAL.completed.inTime, "/", MPT.DB_GLOBAL.completed.overTime)
+  print("Global Runs Incomplete:", MPT.DB_GLOBAL.incomplete)
 end
 
 
@@ -61,7 +74,7 @@ local function InitRun(mapName, keyLevel, affixNames, startTime)
       specID = GetInspectSpecialization(unit)
       specName = GetSpecializationNameForSpecID(specID)
 
-      local isMe = UnitIsUnit(unit, "player") and " (Me)" or ""
+      local isMe = UnitIsUnit(unit, "player") and " *" or ""
 
       table.insert(MPT.currentRun.party, {
         name = name .. isMe,
@@ -90,14 +103,11 @@ local function FinalizeRun(isCompleted, onTime, completionTime)
     if isCompleted then
       if onTime then
         MPT.DB.completed.inTime = MPT.DB.completed.inTime + 1
-        MPT.DB_GLOBAL.completed.inTime = MPT.DB_GLOBAL.completed.inTime + 1
       else
         MPT.DB.completed.overTime = MPT.DB.completed.overTime + 1
-        MPT.DB_GLOBAL.completed.overTime = MPT.DB_GLOBAL.completed.overTime + 1
       end
     else
       MPT.DB.incomplete = MPT.DB.incomplete + 1
-      MPT.DB_GLOBAL.incomplete = MPT.DB_GLOBAL.incomplete + 1
     end
     MPT.currentRun = nil
   end
@@ -114,6 +124,28 @@ function MPT.OnEvent(_, event, ...)
   if event == "ADDON_LOADED" then
     local addonName = ...
     if addonName == "MPlusTracker" then
+      -- Ensure saved vars are init
+      if not MPT_DB then
+        MPT_DB = {
+          completed = { inTime = 0, overTime = 0 },
+          incomplete = 0,
+          runs = {},
+          started = 0,
+        }
+      end
+
+      if not MPT_DB_GLOBAL then
+        MPT_DB_GLOBAL = {
+          completed = { inTime = 0, overTime = 0 },
+          incomplete = 0,
+          runs = {},
+          started = 0,
+        }
+      end
+
+      MPT.DB = MPT_DB
+      MPT.DB_GLOBAL = MPT_DB_GLOBAL
+
       print("MPT Loaded")
     end
   end
