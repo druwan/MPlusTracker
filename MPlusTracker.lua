@@ -51,9 +51,16 @@ local function UpdateGlobalStats()
   print("Global Runs Incomplete:", MPT.DB_GLOBAL.incomplete)
 end
 
+-- Store curr char. Inspect
+MPT.pendingInspect = nil
+MPT.runActive = false
 
 -- Init a new run
 local function InitRun(mapName, keyLevel, affixNames, startTime)
+  if MPT.runActive then return end
+
+  MPT.runActive = true
+
   MPT.currentRun = {
     mapName = mapName,
     level = keyLevel,
@@ -71,10 +78,19 @@ local function InitRun(mapName, keyLevel, affixNames, startTime)
       class = select(2, UnitClass(unit))
       role = UnitGroupRolesAssigned(unit)
 
-      specID = GetInspectSpecialization(unit)
-      specName = GetSpecializationNameForSpecID(specID)
+      -- If it's the player, use GetSpecialization() directly
+      if UnitIsUnit(unit, "player") then
+        specID = GetSpecialization()
+        specName = specID and select(2, GetSpecializationInfo(specID)) or "Unknown"
+      else
+        -- For party members, use NotifyInspect and set a placeholder until spec is available
+        specName = "Inspecting..."
+        NotifyInspect(unit)
+        MPT.pendingInspect = unit -- Track which unit we're inspecting
+      end
 
-      local isMe = UnitIsUnit(unit, "player") and " *" or ""
+
+      local isMe = UnitIsUnit(unit, "player") and "*" or ""
 
       table.insert(MPT.currentRun.party, {
         name = name .. isMe,
@@ -91,6 +107,27 @@ local function InitRun(mapName, keyLevel, affixNames, startTime)
   print("Mythic+ started: " .. mapName .. " (Level: " .. keyLevel .. ")")
 end
 
+
+-- Update the party member's spec when INSPECT_READY is fired
+local function OnInspectReady()
+  if MPT.pendingInspect then
+    local unit = MPT.pendingInspect
+    local specID = GetInspectSpecialization(unit)
+    local specName = specID and GetSpecializationNameForSpecID(specID) or "Unknown"
+
+    -- Update the spec for the inspected party member
+    for _, member in ipairs(MPT.currentRun.party) do
+      if string.find(member.name, GetUnitName(unit, true), 1, true) then
+        member.spec = specName
+        print("Updated spec for " .. member.name .. " to " .. specName)
+        break
+      end
+    end
+
+    MPT.pendingInspect = nil -- Clear pending inspection
+  end
+end
+
 -- Finalize a run, either completed or incomplete
 local function FinalizeRun(isCompleted, onTime, completionTime)
   if MPT.currentRun then
@@ -99,17 +136,20 @@ local function FinalizeRun(isCompleted, onTime, completionTime)
 
     table.insert(MPT.DB.runs, MPT.currentRun)
 
-    MPT.DB_GLOBAL.started = MPT.DB_GLOBAL.started + 1
     if isCompleted then
       if onTime then
         MPT.DB.completed.inTime = MPT.DB.completed.inTime + 1
+        MPT.DB_GLOBAL.completed.inTime = MPT.DB_GLOBAL.completed.inTime + 1
       else
         MPT.DB.completed.overTime = MPT.DB.completed.overTime + 1
+        MPT.DB_GLOBAL.completed.overTime = MPT.DB_GLOBAL.completed.overTime + 1
       end
     else
       MPT.DB.incomplete = MPT.DB.incomplete + 1
+      MPT.DB_GLOBAL.incomplete = MPT.DB_GLOBAL.incomplete + 1
     end
     MPT.currentRun = nil
+    MPT.runActive = false
   end
 end
 
@@ -119,33 +159,13 @@ C_Timer.NewTicker(300, UpdateGlobalStats)
 
 -- Event handler for m+ tracking
 function MPT.OnEvent(_, event, ...)
-  local dungeonName, affixName, affixIDs, activeKeystoneLevel
+  if event == "INSPECT_READY" then
+    OnInspectReady()
+  end
 
   if event == "ADDON_LOADED" then
     local addonName = ...
     if addonName == "MPlusTracker" then
-      -- Ensure saved vars are init
-      if not MPT_DB then
-        MPT_DB = {
-          completed = { inTime = 0, overTime = 0 },
-          incomplete = 0,
-          runs = {},
-          started = 0,
-        }
-      end
-
-      if not MPT_DB_GLOBAL then
-        MPT_DB_GLOBAL = {
-          completed = { inTime = 0, overTime = 0 },
-          incomplete = 0,
-          runs = {},
-          started = 0,
-        }
-      end
-
-      MPT.DB = MPT_DB
-      MPT.DB_GLOBAL = MPT_DB_GLOBAL
-
       print("MPT Loaded")
     end
   end
@@ -155,9 +175,9 @@ function MPT.OnEvent(_, event, ...)
   end
 
   if event == "CHALLENGE_MODE_START" then
-    dungeonName = C_ChallengeMode.GetMapUIInfo(C_ChallengeMode.GetActiveChallengeMapID())
-    activeKeystoneLevel, affixIDs, _ = C_ChallengeMode.GetActiveKeystoneInfo()
-    affixName = select(1, C_ChallengeMode.GetAffixInfo(affixIDs[1]))
+    local dungeonName = C_ChallengeMode.GetMapUIInfo(C_ChallengeMode.GetActiveChallengeMapID())
+    local activeKeystoneLevel, affixIDs, _ = C_ChallengeMode.GetActiveKeystoneInfo()
+    local affixName = select(1, C_ChallengeMode.GetAffixInfo(affixIDs[1]))
     InitRun(dungeonName, activeKeystoneLevel, affixName, time())
   end
 
@@ -166,14 +186,13 @@ function MPT.OnEvent(_, event, ...)
       local _, _, time, onTime, _, _, _, _, _, _, _, _, _ = C_ChallengeMode.GetCompletionInfo()
       FinalizeRun(true, onTime, time)
     end
-    -- Handle Abandoned runs,
-  elseif event == "CHALLENGE_MODE_RESET" or event == "PLAYER_LEAVING_WORLD" then
-    if MPT.currentRun then
-      if not IsInGroup() then
-        MPT.currentRun.abandoned = true
-        FinalizeRun(false, 'N/A', time())
-        MPT.currentRun = nil
-      end
+  end
+
+  -- Handle Abandoned runs,
+  if event == "CHALLENGE_MODE_RESET" or event == "PLAYER_LEAVING_WORLD" then
+    if MPT.currentRun and not IsInGroup() then
+      MPT.currentRun.abandoned = true
+      FinalizeRun(false, 'N/A', time())
     end
   end
 end
@@ -185,7 +204,8 @@ local events = {
   "CHALLENGE_MODE_RESET",
   "CHALLENGE_MODE_START",
   "PLAYER_LEAVING_WORLD",
-  "PLAYER_LOGOUT"
+  "PLAYER_LOGOUT",
+  "INSPECT_READY"
 }
 
 for _, e in pairs(events) do
