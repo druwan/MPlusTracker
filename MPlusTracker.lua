@@ -247,13 +247,85 @@ for _, e in pairs(events) do
 end
 eventFrame:SetScript("OnEvent", MPT.OnEvent)
 
--- Slash command to display stats
-SLASH_MPTTRACKER1 = "/mpt"
-SlashCmdList["MPTTRACKER"] = function()
-  print("M+ Runs started: " .. MPT.DB_GLOBAL.started)
-  print("Completed: " ..
-    MPT.DB_GLOBAL.completed.inTime .. " in time, " .. MPT.DB_GLOBAL.completed.overTime .. " over time.")
-  print("Incomplete: " .. MPT.DB_GLOBAL.incomplete)
+-- Create Frame
+local function CreateUIFrame(frameType, titleTxt, ctxTxt, scrollable)
+  local frameName = "MPT_" .. frameType .. "frame"
+  local frame = _G[frameName]
+
+  if not frame then
+    -- Create Main frame
+    frame = CreateFrame("Frame", frameName, UIParent, "BasicFrameTemplateWithInset")
+    frame:SetSize(600, 800)
+    frame:SetPoint("CENTER")
+
+    -- Frame Title
+    frame.title = frame:CreateFontString(nil, "OVERLAY")
+    frame.title:SetFontObject("GameFontHighlightLarge")
+    frame.title:SetPoint("TOP", frame, "TOP", 0, -10)
+    frame.title:SetText(titleTxt)
+
+    -- Scroll Frame
+    local scrollFrame, editBox
+    if scrollable then
+      scrollFrame = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
+      scrollFrame:SetSize(560, 660)
+      scrollFrame:SetPoint("TOP", frame, "TOP", 0, -50)
+
+      -- Edit Box inside Scroll Frame for scrollable content
+      editBox = CreateFrame("EditBox", nil, scrollFrame)
+      editBox:SetMultiLine(true)
+      editBox:SetFontObject("ChatFontNormal")
+      editBox:SetWidth(520)
+      editBox:SetHeight(640)
+      editBox:SetAutoFocus(false)
+      scrollFrame:SetScrollChild(editBox)
+      frame.editBox = editBox
+    else
+      -- Static Content (for non-scrollable stats)
+      frame.content = frame:CreateFontString(nil, "OVERLAY")
+      frame.content:SetFontObject("GameFontHighlight")
+      frame.content:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -40)
+      frame.content:SetJustifyH("LEFT")
+      frame.content:SetWidth(580)
+      frame.content:SetHeight(700) -- Adjust height if needed
+    end
+
+    -- Close Button
+    local closeButton = CreateFrame("Button", nil, frame, "GameMenuButtonTemplate")
+    closeButton:SetPoint("BOTTOM", frame, "BOTTOM", 0, 10)
+    closeButton:SetSize(100, 30)
+    closeButton:SetText("Close")
+    closeButton:SetScript("OnClick", function() frame:Hide() end)
+
+    -- Copy Button (for export frame, optional)
+    if frameType == "Export" then
+      local copyButton = CreateFrame("Button", nil, frame, "GameMenuButtonTemplate")
+      copyButton:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -10, 10)
+      copyButton:SetSize(100, 30)
+      copyButton:SetText("Copy Data")
+      copyButton:SetScript("OnClick", function() frame.editBox:HighlightText() end)
+    end
+
+    _G[frameName] = frame -- Store globally for future reference
+  end
+
+  -- Set content based on type
+  if scrollable then
+    frame.editBox:SetText(ctxTxt)
+  else
+    frame.content:SetText(ctxTxt)
+  end
+  frame:Show()
+end
+
+-- Show Export UI
+local function ShowExportUI(csvData)
+  CreateUIFrame("Export", "MPT - Export Data", csvData, true)
+end
+
+-- Show Stats UI
+local function ShowStatsUI(statsText)
+  CreateUIFrame("Stats", "MPT - Stats", statsText, false)
 end
 
 -- CSV Export function
@@ -277,36 +349,6 @@ function MPT.ExportToCSV()
   return BuildCSVData()
 end
 
--- Simple UI to display CSV
-local exportFrame
-local function ShowExportUI(csvData)
-  if not exportFrame then
-    exportFrame = CreateFrame("Frame", "MPlusExportFrame", UIParent, "BasicFrameTemplateWithInset")
-    exportFrame:SetSize(400, 300)
-    exportFrame:SetPoint("CENTER")
-
-    local scrollFrame = CreateFrame("ScrollFrame", nil, exportFrame, "UIPanelScrollFrameTemplate")
-    scrollFrame:SetSize(400, 300)
-    scrollFrame:SetPoint("TOP", exportFrame, "TOP", 0, -30)
-
-    local editBox = CreateFrame("EditBox", nil, scrollFrame)
-    editBox:SetMultiLine(true)
-    editBox:SetFontObject("ChatFontNormal")
-    editBox:SetWidth(360)
-    scrollFrame:SetScrollChild(editBox)
-    exportFrame.editBox = editBox
-  end
-  exportFrame.editBox:SetText(csvData)
-  exportFrame:Show()
-end
-
--- Slash cmd to export data as CSV
-SLASH_MPTTRACKEREXPORT1 = "/mptexport"
-SlashCmdList["MPTTRACKEREXPORT"] = function()
-  local csvData = MPT.ExportToCSV()
-  ShowExportUI(csvData)
-end
-
 -- UI Function
 local function BuildStatsText()
   local text = string.format(
@@ -321,32 +363,28 @@ local function BuildStatsText()
   return text
 end
 
--- Simple UI
-local frame = CreateFrame("Frame", "MPTFrame", UIParent, "BasicFrameTemplateWithInset")
-frame:SetSize(300, 400) -- Width, Height
-frame:SetPoint("CENTER")
-frame:Hide()
-
-frame.title = frame:CreateFontString(nil, "OVERLAY")
-frame.title:SetFontObject("GameFontHighlightLarge")
-frame.title:SetPoint("TOP", frame, "TOP", 0, -10)
-frame.title:SetText("M+ Tracker")
-
-frame.stats = frame:CreateFontString(nil, "OVERLAY")
-frame.stats:SetFontObject("GameFontHighlight")
-frame.stats:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -40)
-frame.stats:SetJustifyH("LEFT")
-
-function MPT.UpdateUI()
-  frame.stats:SetText(BuildStatsText())
+---------------------------------------------------
+--- Slash CMDs
+---------------------------------------------------
+-- Print stats
+SLASH_MPTTRACKER1 = "/mpt"
+SlashCmdList["MPTTRACKER"] = function()
+  print("M+ Runs started: " .. MPT.DB_GLOBAL.started)
+  print("Completed: " ..
+    MPT.DB_GLOBAL.completed.inTime .. " in time, " .. MPT.DB_GLOBAL.completed.overTime .. " over time.")
+  print("Incomplete: " .. MPT.DB_GLOBAL.incomplete)
 end
 
+-- Show UI
 SLASH_MPTTRACKERUI1 = "/mptui"
 SlashCmdList["MPTTRACKERUI"] = function()
-  if frame:IsShown() then
-    frame:Hide()
-  else
-    MPT.UpdateUI()
-    frame:Show()
-  end
+  local statsText = BuildStatsText()
+  ShowStatsUI(statsText)
+end
+
+-- Show CSV data
+SLASH_MPTTRACKEREXPORT1 = "/mptexport"
+SlashCmdList["MPTTRACKEREXPORT"] = function()
+  local csvData = MPT.ExportToCSV()
+  ShowExportUI(csvData)
 end
