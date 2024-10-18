@@ -78,14 +78,12 @@ local function InitRun(mapName, keyLevel, affixNames, startTime)
       -- If it's the player, use GetSpecialization() directly
       if UnitIsUnit(unit, "player") then
         specID = GetSpecialization()
-        specName = specID and select(2, GetSpecializationInfo(specID)) or "Unknown"
+        specName = specID and GetSpecializationNameForSpecID(specID)
       else
         -- For party members, use NotifyInspect and set a placeholder until spec is available
         specName = "Inspecting..."
-        NotifyInspect(unit)
-        MPT.pendingInspect = unit -- Track which unit we're inspecting
+        RequestInspect(unit, name)
       end
-
 
       local isMe = UnitIsUnit(unit, "player") and "*" or ""
 
@@ -104,6 +102,40 @@ local function InitRun(mapName, keyLevel, affixNames, startTime)
   print("Mythic+ started: " .. mapName .. " (Level: " .. keyLevel .. ")")
 end
 
+MPT.inspectQueue = {}
+MPT.inspectInProgress = false
+
+-- Request an inspection for a unit, add it to the queue if another inspection is in progress
+function RequestInspect(unit, name)
+  if CanInspect(unit) then
+    table.insert(MPT.inspectQueue, { unit = unit, name = name })
+    ProcessNextInspect()
+  else
+    print("Error when inspecting: " .. name)
+  end
+end
+
+function ProcessNextInspect()
+  -- Return if an inspection is already in progress or queue is empty
+  if MPT.inspectInProgress or #MPT.inspectQueue == 0 then return end
+
+  local nextInspect = table.remove(MPT.inspectQueue, 1)
+  MPT.inspectInProgress = true
+
+  -- Delay the next inspection by 1 second to avoid rapid requests
+  C_Timer.After(1, function()
+    if not CanInspect(nextInspect.unit) then
+      print("Unable to inspect: " .. nextInspect.name)
+      MPT.inspectInProgress = false
+      ProcessNextInspect()
+      return
+    end
+    -- Request inspection for the next unit
+    NotifyInspect(nextInspect.unit)
+    -- Track the unit being inspected
+    MPT.pendingInspect = nextInspect.unit
+  end)
+end
 
 -- Update the party member's spec when INSPECT_READY is fired
 local function OnInspectReady()
@@ -122,6 +154,8 @@ local function OnInspectReady()
     end
 
     MPT.pendingInspect = nil -- Clear pending inspection
+    MPT.inspectInProgress = false
+    ProcessNextInspect()
   end
 end
 
@@ -190,6 +224,9 @@ function MPT.OnEvent(_, event, ...)
     if MPT.currentRun and not IsInGroup() then
       MPT.currentRun.abandoned = true
       FinalizeRun(false, 'N/A', time())
+      -- Reset current run
+      MPT.currentRun = nil
+      MPT.runActive = false
     end
   end
 end
@@ -226,11 +263,11 @@ local function BuildCSVData()
     local party = {}
     for _, member in ipairs(run.party) do
       local specInfo = member.spec and (" (" .. member.spec .. ")") or ""
-      local selfMark = member.isMe and " (*)" or ""
+      local selfMark = member.isMe and "(*)" or ""
       table.insert(party,
         member.name .. " (" .. member.class .. " - " .. member.role .. specInfo .. selfMark .. ")")
     end
-    csvData = csvData .. string.format("%s,%s,%d,\"%s\",%s\n",
+    csvData = csvData .. string.format('"%s","%s","%d","%s",%s\n',
       run.startTime, run.mapName, run.level, table.concat(party, "; "), tostring(run.completed))
   end
   return csvData
