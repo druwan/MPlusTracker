@@ -45,10 +45,7 @@ local function UpdateGlobalStats()
   MPT.DB.incomplete = 0
 
   -- Debugging
-  print("Global Stats Updated:")
-  print("Global Runs Started:", MPT.DB_GLOBAL.started)
-  print("Global Runs Completed (In/Over) Time:", MPT.DB_GLOBAL.completed.inTime, "/", MPT.DB_GLOBAL.completed.overTime)
-  print("Global Runs Incomplete:", MPT.DB_GLOBAL.incomplete)
+  print("Global Stats Updated")
 end
 
 -- Store curr char. Inspect
