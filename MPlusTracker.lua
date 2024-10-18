@@ -345,9 +345,6 @@ local function BuildCSVData()
   return csvData
 end
 
-function MPT.ExportToCSV()
-  return BuildCSVData()
-end
 
 -- UI Function
 local function BuildStatsText()
@@ -385,6 +382,6 @@ end
 -- Show CSV data
 SLASH_MPTTRACKEREXPORT1 = "/mptexport"
 SlashCmdList["MPTTRACKEREXPORT"] = function()
-  local csvData = MPT.ExportToCSV()
+  local csvData = BuildCSVData()
   ShowExportUI(csvData)
 end
