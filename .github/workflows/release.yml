@@ -10,6 +10,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch All Tags
+        run: git fetch --tags
 
       - name: Get Next Version
         id: semver
@@ -38,8 +43,16 @@ jobs:
           commits_escaped=$(echo "$commits" | sed ':a;N;$!ba;s/\n/\\n/g')
           echo "messages=$commits_escaped" >> $GITHUB_OUTPUT
 
-      - name: Push tag
-        uses: mathieudutour/github-tag-action@v6.2
-        id: tag_version
-        with:
-          github_token: ${{ github.token }}
+      - name: Create and Push Tag with Message
+        uses: fregante/setup-git-user@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Ensure authentication for git push
+      - run: |
+          # Use the next version as the tag
+          new_tag=${{ steps.semver.outputs.next }}
+
+          # Create the tag with the custom message
+          git tag -a "$new_tag" -m "Changes since last release:\n${{ steps.get_commit_messages.outputs.messages }}"
+
+          # Push the tag to the repository
+          git push origin "$new_tag"
