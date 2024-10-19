@@ -104,7 +104,6 @@ end
 
 MPT.inspectQueue = {}
 MPT.inspectInProgress = false
-
 -- Request an inspection for a unit, add it to the queue if another inspection is in progress
 function RequestInspect(unit, name)
   if CanInspect(unit) then
@@ -118,10 +117,8 @@ end
 function ProcessNextInspect()
   -- Return if an inspection is already in progress or queue is empty
   if MPT.inspectInProgress or #MPT.inspectQueue == 0 then return end
-
   local nextInspect = table.remove(MPT.inspectQueue, 1)
   MPT.inspectInProgress = true
-
   -- Delay the next inspection by 1 second to avoid rapid requests
   C_Timer.After(1, function()
     if not CanInspect(nextInspect.unit) then
@@ -130,10 +127,17 @@ function ProcessNextInspect()
       ProcessNextInspect()
       return
     end
+    print("Inspecting player: " .. nextInspect.name)
     -- Request inspection for the next unit
     NotifyInspect(nextInspect.unit)
     -- Track the unit being inspected
     MPT.pendingInspect = nextInspect.unit
+    -- Print when inspection is done (complete or awaiting result)
+    C_Timer.After(2, function()
+      print("Inspection complete or waiting for response: " .. nextInspect.name)
+      MPT.inspectInProgress = false
+      ProcessNextInspect()
+    end)
   end)
 end
 
