@@ -3,30 +3,6 @@ local MPT = _G.MPT or {}
 _G.MPT = MPT
 local eventFrame = CreateFrame("Frame")
 
--- Default values for the database
-if not MPT_DB then
-  MPT_DB = {
-    completed = {
-      inTime = 0,
-      overTime = 0,
-    },
-    incomplete = 0,
-    runs = {},
-    started = 0,
-  }
-end
-
-if not MPT_DB_GLOBAL then
-  MPT_DB_GLOBAL = {
-    completed = {
-      inTime = 0,
-      overTime = 0,
-    },
-    incomplete = 0,
-    runs = {},
-    started = 0,
-  }
-end
 
 MPT.DB = MPT_DB
 MPT.DB_GLOBAL = MPT_DB_GLOBAL
@@ -201,6 +177,30 @@ function MPT.OnEvent(_, event, ...)
   if event == "ADDON_LOADED" then
     local addonName = ...
     if addonName == "MPlusTracker" then
+      -- Default values for the database
+      if not MPT_DB then
+        MPT_DB = {
+          completed = {
+            inTime = 0,
+            overTime = 0,
+          },
+          incomplete = 0,
+          runs = {},
+          started = 0,
+        }
+      end
+
+      if not MPT_DB_GLOBAL then
+        MPT_DB_GLOBAL = {
+          completed = {
+            inTime = 0,
+            overTime = 0,
+          },
+          incomplete = 0,
+          runs = {},
+          started = 0,
+        }
+      end
       print("MPT Loaded")
     end
   end
