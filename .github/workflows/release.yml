@@ -47,12 +47,16 @@ jobs:
         uses: fregante/setup-git-user@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Ensure authentication for git push
+          GITHUB_USERNAME: ${{ secrets.GITHUB_USERNAME }}
       - run: |
           # Use the next version as the tag
           new_tag=${{ steps.semver.outputs.next }}
 
           # Use printf to insert a newline into the tag message
           tag_message=$(printf "Changes since last commit:\n${{ steps.get_commit_messages.outputs.messages }}")
+
+          # Set up Git user information using secrets
+          git config user.name "$GIT_USERNAME"
 
           # Create the tag with the custom message
           git tag -a "$new_tag" -m "$tag_message"
