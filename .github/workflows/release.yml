@@ -34,9 +34,9 @@ jobs:
         run: |
           # If no tag, use all commits
           if [ -z "${{ steps.get_latest_tag.outputs.latest_tag }}" ]; then
-            commits=$(git log --pretty=format:"* %s" HEAD)
+            commits=$(git log --pretty=format:"%s" HEAD)
           else
-            commits=$(git log --pretty=format:"* %s" ${{ steps.get_latest_tag.outputs.latest_tag }}..HEAD)
+            commits=$(git log --pretty=format:"%s" ${{ steps.get_latest_tag.outputs.latest_tag }}..HEAD)
           fi
           echo "Commits:"
           echo "$commits"
@@ -51,8 +51,11 @@ jobs:
           # Use the next version as the tag
           new_tag=${{ steps.semver.outputs.next }}
 
+          # Use printf to insert a newline into the tag message
+          tag_message=$(printf "Changes since last commit:\n${{ steps.get_commit_messages.outputs.messages }}")
+
           # Create the tag with the custom message
-          git tag -a "$new_tag" -m "Changes since last release:\n${{ steps.get_commit_messages.outputs.messages }}"
+          git tag -a "$new_tag" -m "$tag_message"
 
           # Push the tag to the repository
           git push origin "$new_tag"
