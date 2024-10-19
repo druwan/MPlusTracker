@@ -259,7 +259,7 @@ local function CreateUIFrame(frameType, titleTxt, ctxTxt, scrollable)
   if not frame then
     -- Create Main frame
     frame = CreateFrame("Frame", frameName, UIParent, "BasicFrameTemplateWithInset")
-    frame:SetSize(600, 800)
+    frame:SetSize(800, 500)
     frame:SetPoint("CENTER")
 
     -- Frame Title
