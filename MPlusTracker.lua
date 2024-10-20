@@ -61,7 +61,7 @@ local function InitRun(mapName, keyLevel, affixNames, startTime)
       -- If it's the player, use GetSpecialization() directly
       if UnitIsUnit(unit, "player") then
         specID = GetSpecialization()
-        specName = specID and GetSpecializationNameForSpecID(specID)
+        specName = specID and select(2, GetSpecializationInfo(specID))
       else
         -- For party members, use NotifyInspect and set a placeholder until spec is available
         specName = "Inspecting..."
