@@ -3,12 +3,19 @@ local MPT = _G.MPT or {}
 _G.MPT = MPT
 local eventFrame = CreateFrame("Frame")
 
-
-MPT.DB = MPT_DB
-MPT.DB_GLOBAL = MPT_DB_GLOBAL
-
 -- Updates global stats and resets session data to avoid double counting
 local function UpdateGlobalStats()
+  if not MPT.DB_GLOBAL then
+    MPT.DB_GLOBAL = {
+      completed = {
+        inTime = 0,
+        overTime = 0,
+      },
+      incomplete = 0,
+      runs = {},
+      started = 0,
+    }
+  end
   MPT.DB_GLOBAL.started = MPT.DB_GLOBAL.started + MPT.DB.started
   MPT.DB_GLOBAL.completed.inTime = MPT.DB_GLOBAL.completed.inTime + MPT.DB.completed.inTime
   MPT.DB_GLOBAL.completed.overTime = MPT.DB_GLOBAL.completed.overTime + MPT.DB.completed.overTime
@@ -201,6 +208,8 @@ function MPT.OnEvent(_, event, ...)
           started = 0,
         }
       end
+      MPT.DB = MPT_DB
+      MPT.DB_GLOBAL = MPT_DB_GLOBAL
       print("MPT Loaded")
     end
   end
