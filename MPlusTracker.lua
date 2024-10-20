@@ -219,7 +219,8 @@ function MPT.OnEvent(_, event, ...)
   end
 
   if event == "CHALLENGE_MODE_START" then
-    local dungeonName = C_ChallengeMode.GetMapUIInfo(C_ChallengeMode.GetActiveChallengeMapID())
+    local activeMapID = C_ChallengeMode.GetActiveChallengeMapID()
+    local dungeonName = activeMapID and C_ChallengeMode.GetMapUIInfo(activeMapID)
     local activeKeystoneLevel, affixIDs, _ = C_ChallengeMode.GetActiveKeystoneInfo()
     local affixName = select(1, C_ChallengeMode.GetAffixInfo(affixIDs[1]))
     InitRun(dungeonName, activeKeystoneLevel, affixName, time())
