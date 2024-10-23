@@ -28,7 +28,7 @@ local function UpdateGlobalStats()
   MPT.DB.incomplete = 0
 
   -- Debugging
-  print("Global Stats Updated")
+  PrintToChat("Global Stats Updated", 4)
 end
 
 -- Store curr char. Inspect
@@ -82,7 +82,7 @@ local function InitRun(mapName, keyLevel, affixNames, startTime)
   MPT.DB.started = MPT.DB.started + 1
   MPT.DB_GLOBAL.started = MPT.DB_GLOBAL.started + 1
 
-  print("Mythic+ started: " .. mapName .. " (Level: " .. keyLevel .. ")")
+  PrintToChat("Mythic+ started: " .. mapName .. " (Level: " .. keyLevel .. ")", 4)
 end
 
 MPT.inspectQueue = {}
@@ -93,7 +93,7 @@ function RequestInspect(unit, name)
     table.insert(MPT.inspectQueue, { unit = unit, name = name })
     ProcessNextInspect()
   else
-    print("Error when inspecting: " .. name)
+    PrintToChat("Error when inspecting: " .. name, 4)
   end
 end
 
@@ -105,19 +105,19 @@ function ProcessNextInspect()
   -- Delay the next inspection by 1 second to avoid rapid requests
   C_Timer.After(1, function()
     if not CanInspect(nextInspect.unit) then
-      print("Unable to inspect: " .. nextInspect.name)
+      PrintToChat("Unable to inspect: " .. nextInspect.name, 4)
       MPT.inspectInProgress = false
       ProcessNextInspect()
       return
     end
-    print("Inspecting player: " .. nextInspect.name)
+    PrintToChat("Inspecting player: " .. nextInspect.name, 4)
     -- Request inspection for the next unit
     NotifyInspect(nextInspect.unit)
     -- Track the unit being inspected
     MPT.pendingInspect = nextInspect.unit
     -- Print when inspection is done (complete or awaiting result)
     C_Timer.After(2, function()
-      print("Inspection complete or waiting for response: " .. nextInspect.name)
+      PrintToChat("Inspection complete or waiting for response: " .. nextInspect.name, 4)
       MPT.inspectInProgress = false
       ProcessNextInspect()
     end)
@@ -135,7 +135,7 @@ local function OnInspectReady()
     for _, member in ipairs(MPT.currentRun.party) do
       if string.find(member.name, GetUnitName(unit, true), 1, true) then
         member.spec = specName
-        print("Updated spec for " .. member.name .. " to " .. specName)
+        PrintToChat("Updated spec for " .. member.name .. " to " .. specName, 4)
         break
       end
     end
@@ -378,12 +378,19 @@ end
 --- Slash CMDs
 ---------------------------------------------------
 -- Print stats
+function PrintToChat(message, frameIndex)
+  local chatFrame = _G["ChatFrame" .. frameIndex]
+  chatFrame:AddMessage(message)
+end
+
 SLASH_MPTTRACKER1 = "/mpt"
 SlashCmdList["MPTTRACKER"] = function()
-  print("M+ Runs started: " .. MPT.DB_GLOBAL.started)
-  print("Completed: " ..
-    MPT.DB_GLOBAL.completed.inTime .. " in time, " .. MPT.DB_GLOBAL.completed.overTime .. " over time.")
-  print("Incomplete: " .. MPT.DB_GLOBAL.incomplete)
+  local statsMsg = "M+ Runs started: " .. MPT.DB_GLOBAL.started .. "\n"
+  statsMsg = statsMsg .. "Completed: " .. MPT.DB_GLOBAL.completed.inTime .. " in time, "
+  statsMsg = statsMsg .. MPT.DB_GLOBAL.completed.overTime .. " over time.\n"
+  statsMsg = statsMsg .. "Incomplete: " .. MPT.DB_GLOBAL.incomplete
+
+  PrintToChat(statsMsg, 4)
 end
 
 -- Show UI
