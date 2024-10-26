@@ -172,8 +172,8 @@ local function FinalizeRun(isCompleted, onTime, completionTime)
 end
 
 
--- Register a timer to save every 5 minutes
-C_Timer.NewTicker(300, UpdateGlobalStats)
+-- Register a timer to save every 10 minutes
+C_Timer.NewTicker(600, UpdateGlobalStats)
 
 -- Event handler for m+ tracking
 function MPT.OnEvent(_, event, ...)
