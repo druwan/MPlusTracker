@@ -4,9 +4,7 @@
 ## Author: Druwan
 ## SavedVariables: MPT_DB, MPT_DB_GLOBAL
 
-Config.lua
 Core.lua
 Data.lua
 Inspect.lua
 UI.lua
-Utils.lua

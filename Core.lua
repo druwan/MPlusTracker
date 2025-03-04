@@ -1,5 +1,6 @@
 -- Addon namespace
-local MPT = _G.MPT
+local MPT = _G.MPT or {}
+_G.MPT = MPT
 local eventFrame = CreateFrame("Frame")
 
 
