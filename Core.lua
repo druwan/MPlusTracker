@@ -3,10 +3,8 @@ local MPT = _G.MPT or {}
 _G.MPT = MPT
 local eventFrame = CreateFrame("Frame")
 
-
 MPT.runActive = false
 MPT.currentRun = nil
-
 
 -- Event handler for m+ tracking
 function MPT:OnEvent(_, event, ...)
@@ -19,8 +17,7 @@ function MPT:OnEvent(_, event, ...)
 		local mapID = C_ChallengeMode.GetActiveChallengeMapID()
 		local mapName = mapID and C_ChallengeMode.GetMapUIInfo(mapID)
 		local keyLvl, affixIDs, _ = C_ChallengeMode.GetActiveKeystoneInfo()
-		local affixName = select(1, C_ChallengeMode.GetAffixInfo(affixIDs[1]))
-		MPT:InitRun(mapName, keyLvl, affixName, time())
+		MPT:InitRun(mapName, keyLvl, affixIDs, time())
 	elseif event == "CHALLENGE_MODE_COMPLETED" and MPT.currentRun then
 		local _, _, time, onTime, keyUpgradeLvl, _, oldOverallDungeonScore, newOverallDungeonScore = C_ChallengeMode
 				.GetChallengeCompletionInfo()

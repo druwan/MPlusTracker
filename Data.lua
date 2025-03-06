@@ -25,37 +25,48 @@ end
 function MPT:InitRun(mapName, keyLvl, affixIDs, startTime)
   if MPT.runActive then return end
   MPT.runActive = true
+
   local affixes = {}
   for _, id in ipairs(affixIDs) do
     table.insert(affixes, (C_ChallengeMode.GetAffixInfo(id)))
   end
+
   MPT.currentRun = {
     char = GetUnitName("player", true),
     mapName = mapName,
     keyLvl = keyLvl,
-    affix = affixes,
+    affixNames = affixes,
     startTime = date("%Y-%m-%d %H:%M:%S", startTime),
-    group = { tank = nil, healer = nil, dps = {} },
+    party = {},
   }
+
   for i = 1, 5 do
     local unit = i == 1 and "player" or "party" .. (i - 1)
     if UnitExists(unit) then
       local name = GetUnitName(unit, true)
       local class = select(2, UnitClass(unit))
       local role = UnitGroupRolesAssigned(unit)
-      local specName = UnitIsUnit(unit, "player") and select(2, GetSpecializationInfo(GetSpecialization())) or nil
-      local member = { name = name, class = class, spec = specName }
-      if role == "TANK" then
-        MPT.currentRun.group.tank = member
-      elseif role == "HEALER" then
-        MPT.currentRun.group.healer = member
-      elseif role == "DAMAGER" then
-        table.insert(MPT.currentRun.group.dps, GroupHasOfflineMember)
-        if not specName then MPT:RequestInspect(unit, name) end
+      local specName, specID
+
+      if UnitIsUnit(unit, "player") then
+        specID = GetSpecialization()
+        specName = specID and select(2, GetSpecializationInfo(specID))
+      else
+        specName = "Inspecting..."
+        MPT:RequestInspect(unit, name)
       end
+
+      local isMe = UnitIsUnit(unit, "player") and "*" or ""
+
+      table.insert(MPT.currentRun.party, {
+        name = name .. isMe,
+        role = role,
+        class = class,
+        spec = specName
+      })
     end
   end
-  MPT:Print("M+ started: " .. startTime .. " " .. mapName .. " (Level: " .. keyLvl .. ")")
+  MPT:Print(mapName .. " " .. keyLvl .. " started " .. startTime)
 end
 
 function MPT:FinalizeRun(isCompleted, onTime, completionTime, keystoneUpgradeLevels, oldScore, newScore, numDeaths,
@@ -69,9 +80,8 @@ function MPT:FinalizeRun(isCompleted, onTime, completionTime, keystoneUpgradeLev
   MPT.currentRun.newOverallDungeonScore = newScore or 0
   MPT.currentRun.numDeaths = numDeaths or 0
   MPT.currentRun.timeLost = timeLost or 0
-  MPT.currentRun.endTime = date("%Y-%m-%d %H:%M:%S", time())
   table.insert(MPT.DB.runs, MPT.currentRun)
-  table.insert(MPT.DB.unsyncedRuns, #MPT.currentRun)
+  table.insert(MPT.DB.unsyncedRuns, #MPT.DB.runs)
   MPT.currentRun = nil
   MPT.runActive = false
   MPT:UpdateUI()
