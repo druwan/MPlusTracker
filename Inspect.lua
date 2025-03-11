@@ -9,7 +9,7 @@ function MPT:RequestInspect(unit, name)
 		table.insert(MPT.inspectQueue, { unit = unit, name = name })
 		MPT:ProcessNextInspect()
 	else
-		MPT:Print("Error inspecting: " .. name)
+		print("Error inspecting: " .. name)
 	end
 end
 
@@ -19,12 +19,12 @@ function MPT:ProcessNextInspect()
 	MPT.inspectInProgress = true
 	C_Timer.After(1, function()
 		if not CanInspect(nextInspect.unit) then
-			MPT:Print("Unable to inspect: " .. nextInspect.name)
+			print("Unable to inspect: " .. nextInspect.name)
 			MPT.inspectInProgress = false
 			MPT:ProcessNextInspect()
 			return
 		end
-		MPT:Print("Inspecting: " .. nextInspect.name)
+		print("Inspecting: " .. nextInspect.name)
 		NotifyInspect(nextInspect.unit)
 		MPT.pendingInspect = nextInspect.unit
 		C_Timer.After(2, function()
@@ -44,7 +44,7 @@ function MPT:OnInspectReady()
 		local member = MPT.currentRun[roleKey]
 		if member and string.find(member.name, name, 1, true) then
 			member.spec = specName
-			MPT:Print("Updated spec for " .. member.name .. " to " .. specName)
+			print("Updated spec for " .. member.name .. " to " .. specName)
 			break
 		end
 	end

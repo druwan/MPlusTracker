@@ -6,8 +6,11 @@ function MPT:InitializeDB()
     unsyncedRuns = {} -- Runs awaiting sync
   }
   MPT.DB_GLOBAL = MPT_DB_GLOBAL or {
-    totalRuns = 0,
-    totalCompleted = 0
+    started = 0,
+    completed = {
+      inTime = 0,
+      overTime = 0
+    }
   }
   MPT_DB = MPT.DB
   MPT_DB_GLOBAL = MPT.DB_GLOBAL
@@ -15,15 +18,31 @@ end
 
 function MPT:UpdateGlobalStats()
   local runs = MPT.DB.runs
-  MPT.DB_GLOBAL.totalRuns = MPT.DB_GLOBAL.totalRuns + #runs
-  MPT.DB_GLOBAL.totalCompleted = MPT.DB_GLOBAL.totalCompleted +
-      #MPT:tFilter(runs, function(run) return run.completed end)
-  MPT:Print("Global Stats Updated")
+  MPT.DB_GLOBAL.started = MPT.DB_GLOBAL.started + #runs
+  MPT.DB_GLOBAL.completed.inTime = MPT.DB_GLOBAL.completed.inTime +
+  #MPT:tFilter(runs, function(run) return run.completed and run.onTime end)
+  MPT.DB_GLOBAL.completed.overTime = MPT.DB_GLOBAL.completed.overTime +
+  #MPT:tFilter(runs, function(run) return run.completed and not run.onTime end)
+  print("Global Stats Updated")
   MPT:UpdateUI()
 end
 
+function MPT:tFilter(tbl, predicate)
+  local res = {}
+  for _, v in ipairs(tbl) do
+    if predicate(v) then
+      table.insert(res, v)
+    end
+  end
+  return res
+end
+
 function MPT:InitRun(mapName, keyLvl, affixIDs, startTime)
-  if MPT.runActive then return end
+  if MPT.runActive then
+    print("[MPT Debug] Run already active, cannot start new run:", mapName, keyLvl)
+    return
+  end
+  print("[MPT Debug] Initializing new run:", mapName, keyLvl, startTime)
   MPT.runActive = true
 
   local affixes = {}
@@ -66,7 +85,7 @@ function MPT:InitRun(mapName, keyLvl, affixIDs, startTime)
       })
     end
   end
-  MPT:Print(mapName .. " " .. keyLvl .. " started " .. startTime)
+  print(mapName .. " " .. keyLvl .. " started " .. startTime)
 end
 
 function MPT:FinalizeRun(isCompleted, onTime, completionTime, keystoneUpgradeLevels, oldScore, newScore, numDeaths,

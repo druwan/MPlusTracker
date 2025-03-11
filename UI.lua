@@ -21,14 +21,20 @@ MPT.frame.toggle:SetScript("OnClick", function() MPT:ToggleUI() end)
 
 function MPT:UpdateUI()
   if not MPT.frame:IsShown() then return end
-  local failed = MPT.DB_GLOBAL.started - (MPT.DB_GLOBAL.completed.inTime + MPT.DB_GLOBAL.completed.overTime)
+  MPT:EnsureInit()
+  local dbGlobal = MPT.DB_GLOBAL or {}
+  local started = dbGlobal.started or 0
+  local completedInTime = (dbGlobal.completed and dbGlobal.completed.inTime) or 0
+  local completedOverTime = (dbGlobal.completed and dbGlobal.completed.overTime) or 0
+  local failed = started - (completedInTime + completedOverTime)
+  local unsynced = MPT.DB and #MPT.DB.unsyncedRuns or 0
   local stats = string.format(
     "Runs Started: %d\nCompleted In Time: %d\nCompleted Over Time: %d\nAbandoned: %d\nUnsynced: %d",
-    MPT.DB_GLOBAL.started,
-    MPT.DB_GLOBAL.completed.inTime,
-    MPT.DB_GLOBAL.completed.overTime,
+    started,
+    completedInTime,
+    completedOverTime,
     failed,
-    #MPT.DB.unsyncedRuns
+    unsynced
   )
   MPT.frame.stats:SetText(stats)
 end
